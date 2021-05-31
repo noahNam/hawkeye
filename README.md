@@ -20,5 +20,11 @@
 * Dev RDS, SNS arn setting 
 * local_test.py 실행
 ## Todo-list
+### 우선순위 Highest
+* Device Test(아이폰 Push Test)
+* fail over시 dead letter queue 관리
+* 람다의 실행최대시간 Test (12 Min) 
+
+### 우선순위 Low
 * S3 업로드를 통한 배포 자동화
 * dirty package structure 정리 (Local)
