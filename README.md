@@ -4,7 +4,13 @@
 * version 
     * python : 3.8
 ## Architecture
-* cloudwatch(driven crontab batch) -> Lambda -> SNS -> Push notification to user device
+### cloudwatch(driven crontab batch) -> Lambda -> SNS -> Push notification to user device
+* Cloudwatch (crontab batch event) 가 trigger
+* Role of Lambda function 
+    * Tanos Database의 notifications 테이블 참조하여 status wait인 메세지를 가져온다.
+    * SNS Service에 유저 엔드포인트(토큰 기반)을 생성하고 push 메세지를 Topic에 Publish 한다.
+    * notifications.endpoint 정보가 없을 시 생성된 endpoint를 업데이트하고, publish 성공여부를 notifications.status에 업데이트한다. 
+* SNS Service가 publish된 푸쉬 메세지를 endpoint에 전송한다.
 ## Deploy
 * build.sh 실행 하여 생성된 lambda.zip을 AWS <hawkeye_lambda> Service로 업로드 한다.
 ## A point of caution
