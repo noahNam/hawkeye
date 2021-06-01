@@ -122,7 +122,7 @@ def send_sns_notification(query_result: List):
             topic.publish(Message=message, MessageStructure='json')
             # DB status update
             set_data_to_update_to_database(data, 5, SUCCESS)
-            logger.info("Push notification Success [id]: %s", data[3])
+            logger.info("Push notification Success [id]: %s", data[0])
         except ClientError as e:
             logger.exception("Push notification Failure [id]: %s", data[0])
             logger.exception("Could not push notification to platform application endpoint. %s", e)
