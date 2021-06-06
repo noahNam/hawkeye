@@ -72,50 +72,67 @@ def send_sns_notification(query_result: List):
     topic = sns_resource.Topic(topic_arn)
 
     for data in query_result:
-        is_endpoint_available = True
-        try:
-            # get SNS endpoint
-            endpoint_attributes = sns_client.get_endpoint_attributes(EndpointArn=data[1])
+        endpoint_attributes = None
+        update_needed = False
+        create_needed = True if (data[1] is None or data[1] == "") else False
 
-        except Exception as e:
-            logger.exception("Could not get endpoint attributes. %s", e)
-            is_endpoint_available = False
-
-        if is_endpoint_available is False:
+        if not create_needed:
             try:
-                """
-                    CustomUserData : token과 mapping 되는 unique 값
-                    - 엔드포인트에 연결할 임의의 사용자 데이터. Amazon SNS는 이 데이터를 사용 안한다. 이 데이터는 UTF-8 형식이어야 하며 2KB 미만이어야 한다.
-                    - 만약, token이 이미 등록 되어 있고, CustomUserData가 다르면 InvalidParameter Exception 반환(already exists with the same Token, but different attributes.)
-                """
-                # application endpoint 등록
-                platform_application_endpoint = platform_application.create_platform_endpoint(
-                    CustomUserData=str(data[3]),
-                    Token=str(data[4])
-                ).arn
-
                 # get SNS endpoint
-                endpoint_attributes = sns_client.get_endpoint_attributes(EndpointArn=platform_application_endpoint)
+                endpoint_attributes = sns_client.get_endpoint_attributes(EndpointArn=data[1])
 
-                # 구독 생성
-                topic.subscribe(Protocol='application', Endpoint=platform_application_endpoint)
+            except Exception as e:
+                logger.exception("Could not get endpoint attributes. %s", e)
+                create_needed = True
 
-                # DB endpoint update
-                set_data_to_update_to_database(data, 1, platform_application_endpoint)
+        if create_needed:
+            try:
+                endpoint_attributes = create_endpoint(platform_application, data, sns_client, topic)
             except Exception as e:
                 logger.exception("already exists with the same Token, but different attributes. %s", e)
+                # DB status update
+                set_data_to_update_to_database(data, 5, FAILURE)
                 continue
             except UnboundLocalError as e:
                 logger.exception("topic.subscribe error. %s", e)
+                # DB status update
+                set_data_to_update_to_database(data, 5, FAILURE)
+                continue
+
+        """
+            Token update 경우
+            1. 토큰이 다름 (notifications.user_id가 push 보내기 전 update 된 경우)
+            - Token update
+            2. 토큰이 같음
+            - endpoint enabled == false 라도, Token update 의미가 없음 (바로 다시 비활성화 되기 때문에)
+
+        """
+        if endpoint_attributes['Attributes']['Token'] != data[4]:
+            update_needed = True
+        else:
+            if endpoint_attributes['Attributes']['Enabled'] == "false":
+                # DB status update
+                set_data_to_update_to_database(data, 5, FAILURE)
+                continue
+
+        if update_needed:
+            try:
+                params = dict()
+                params['Token'] = data[4]
+                params['Enabled'] = "true"
+                sns_client.set_endpoint_attributes(EndpointArn=data[1], Attributes=params)
+
+                # todo. device_tokens.endpoint update -> platform-application-sns-sqs-lambda 로 receive 처리
+
+            except Exception as e:
+                logger.exception("Set_endpoint_attributes Failure reason. %s", e)
+                logger.exception("Set_endpoint_attributes Failure [id]: %s", data[0])
+
+                # DB status update
+                set_data_to_update_to_database(data, 5, FAILURE)
                 continue
 
         try:
-            # 활성화 여부 체크
-            if endpoint_attributes['Attributes']['Enabled'] == 'false':
-                set_data_to_update_to_database(data, 5, FAILURE)
-                logger.info("endpoint_attributes['Attributes']['Enabled'] is False %s", data[0])
-                continue
-
             # set message
             message = json.dumps(data[2], ensure_ascii=False)
             # push message to topic
@@ -129,6 +146,31 @@ def send_sns_notification(query_result: List):
 
             # DB status update
             set_data_to_update_to_database(data, 5, FAILURE)
+
+
+def create_endpoint(platform_application, data: List, sns_client, topic):
+    """
+        CustomUserData : token과 mapping 되는 unique 값
+        - 엔드포인트에 연결할 임의의 사용자 데이터. Amazon SNS는 이 데이터를 사용 안한다. 이 데이터는 UTF-8 형식이어야 하며 2KB 미만이어야 한다.
+        - 만약, token이 이미 등록 되어 있고, CustomUserData가 다르면 InvalidParameter Exception 반환(already exists with the same Token, but different attributes.)
+        - 값이 없으면 중복된 값이 어느 한계선까지 등록된다.
+    """
+    # application endpoint 등록
+    platform_application_endpoint = platform_application.create_platform_endpoint(
+        CustomUserData=str(data[3]),
+        Token=str(data[4])
+    ).arn
+
+    # DB endpoint update
+    set_data_to_update_to_database(data, 1, platform_application_endpoint)
+
+    # get SNS endpoint
+    endpoint_attributes = sns_client.get_endpoint_attributes(EndpointArn=platform_application_endpoint)
+
+    # 구독 생성
+    topic.subscribe(Protocol='application', Endpoint=platform_application_endpoint)
+
+    return endpoint_attributes
 
 
 def set_data_to_update_to_database(data: List, idx: int, value: str):
