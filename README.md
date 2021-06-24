@@ -19,6 +19,10 @@
 ## Test
 * Dev RDS, SNS arn setting 
 * local_test.py 실행
+## Trouble Shooting
+### No module named 'psycopg2._psycopg'
+- 아래 github에서 빌드된 psycopg2를 가져온다. (Hawkeye의 경우는 3.8)
+- python pacakge 폴더를 생성 후 위에서 가져온 python file를 복사한다.
 ## Todo-list
 ### 우선순위 Highest
 * Device Test(아이폰 Push Test)
