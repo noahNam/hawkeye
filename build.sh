@@ -1,1 +1,1 @@
-zip -r lambda.zip ./psycopg2 ./lambda_function.py README.md
+zip -r lambda.zip ./psycopg2 ./lambda_function.py
