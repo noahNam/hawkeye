@@ -146,6 +146,16 @@ def send_sns_notification(query_result: List):
             # set message
             message = json.dumps(data[2], ensure_ascii=False)
             # push message to topic
+
+            # message_attributes 의 경우음 SNS 주제에 구독한 SQS에서 확인이 안되는 문제가 있음
+            # message_attributes = {
+            #     "Type": {
+            #       "DataType": "String",
+            #       "StringValue": "Orchestration.Services.Model.Pollution.PollutionMessage"
+            #     }
+            # }
+            # topic.publish(Message=message, MessageStructure='json', MessageAttributes=message_attributes)
+
             topic.publish(Message=message, MessageStructure='json')
             # DB status update
             set_data_to_update_to_database(data, 5, SUCCESS)
