@@ -124,10 +124,6 @@ def send_sns_notification(query_result: List):
                 params['Token'] = data[4]
                 params['Enabled'] = "true"
                 sns_client.set_endpoint_attributes(EndpointArn=data[1], Attributes=params)
-
-                # todo. device_tokens.endpoint update -> platform application-sns-sqs-lambda 로 receive 처리
-                # 비활성화 상태더라도 endpoint가 생성안되있을 경우 생성 후에는 Enabled 이 True로 내려오기 때문에 false 처리 필요
-
             except Exception as e:
                 logger.exception("Set_endpoint_attributes Failure reason. %s", e)
                 logger.exception("Set_endpoint_attributes Failure [id]: %s", data[0])
