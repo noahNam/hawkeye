@@ -24,12 +24,15 @@ port = os.environ.get("PORT")
 # set sns
 topic_arn = os.environ.get("TOPIC_ARN")
 application_arn = os.environ.get("APPLICATION_ARN")
+endpoint_prefix = os.environ.get("ENDPOINT_PREFIX")
 
 # set enum
-CATEGORY = "apt01"
-STATUS = "wait"
-SUCCESS = "success"
-FAILURE = "failure"
+TOPIC = ["apt002", "apt003"]
+
+# status
+WAIT = 0
+SUCCESS = 1
+FAILURE = 2
 
 conn = None
 
@@ -74,7 +77,7 @@ def send_sns_notification(query_result: List):
     for data in query_result:
         endpoint_attributes = None
         update_needed = False
-        create_needed = True if (data[1] is None or data[1] == "") else False
+        create_needed = True if (data[1] == endpoint_prefix) else False
 
         if not create_needed:
             try:
@@ -122,7 +125,8 @@ def send_sns_notification(query_result: List):
                 params['Enabled'] = "true"
                 sns_client.set_endpoint_attributes(EndpointArn=data[1], Attributes=params)
 
-                # todo. device_tokens.endpoint update -> platform-application-sns-sqs-lambda 로 receive 처리
+                # todo. device_tokens.endpoint update -> platform application-sns-sqs-lambda 로 receive 처리
+                # 비활성화 상태더라도 endpoint가 생성안되있을 경우 생성 후에는 Enabled 이 True로 내려오기 때문에 false 처리 필요
 
             except Exception as e:
                 logger.exception("Set_endpoint_attributes Failure reason. %s", e)
@@ -181,7 +185,7 @@ def update_notification_schema(query_result: List):
     logger.info("Update notification schema start")
     update_data = list()
     for data in query_result:
-        update_data.append((data[0], data[1], data[5], datetime.now()))
+        update_data.append((data[0], data[1].split(endpoint_prefix)[1], data[5], datetime.now()))
     try:
         openConnection()
         with conn.cursor() as cur:
@@ -209,10 +213,14 @@ def get_push_target_user():
         openConnection()
         with conn.cursor() as cur:
             cur.execute(
-                f"select id, endpoint, data, user_id, token, status from notifications where category='{CATEGORY}' and status = '{STATUS}' ")
+                f"select id, endpoint, data, user_id, token, status from notifications where topic='{TOPIC[0]}' and status = '{WAIT}' "
+                f"union select id, endpoint, data, user_id, token, status from notifications where topic='{TOPIC[1]}' and status = '{WAIT}'  ")
             for row in cur:
                 rslt = list()
-                for data in row:
+                for idx, data in enumerate(row):
+                    if idx == 1:
+                        # endpoint convert
+                        data = endpoint_prefix + data
                     rslt.append(data)
 
                 query_result.append(rslt)
