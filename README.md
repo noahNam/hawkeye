@@ -12,7 +12,8 @@
     * notifications.endpoint 정보가 없을 시 생성된 endpoint를 업데이트하고, publish 성공여부를 notifications.status에 업데이트한다. 
 * SNS Service가 publish된 푸쉬 메세지를 endpoint에 전송한다.
 ## Deploy
-* build.sh 실행 하여 생성된 lambda.zip을 AWS <hawkeye_lambda> Service로 업로드 한다.
+* build_{$name}.sh 실행 하여 생성된 lambda.zip을 해당하는 AWS Lambda Service로 업로드 한다.
+* deploy 폴더에는 각 람다 함수가 들어가 있고 build_{$name}.sh 실행 시 업로드 형태로 패키징 해준다.
 ## A point of caution
 * Lambda Service 특성상 필요 패키지는 root 경로에 둔다.
 * boto3 등 AWS Lambda Service에서 기본적으로 제공해주는 패키지들은 lambda.zip에서 제거한다.(로컬 테스트용)
