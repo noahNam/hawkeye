@@ -198,7 +198,7 @@ def update_notification_schema(query_result: List):
         logger.exception("Error while opening connection or processing. %s", e)
     finally:
         logger.info("Closing Connection")
-        if conn is not None and conn.status == STATUS_BEGIN:
+        if conn and conn.status == STATUS_BEGIN:
             conn.close()
 
 
@@ -225,7 +225,7 @@ def get_push_target_user():
         logger.exception("Error while opening connection or processing. %s", e)
     finally:
         logger.info("Closing Connection")
-        if conn is not None and conn.status == STATUS_BEGIN:
+        if conn and conn.status == STATUS_BEGIN:
             conn.close()
 
     return dict(item_count=item_count, query_result=query_result)
