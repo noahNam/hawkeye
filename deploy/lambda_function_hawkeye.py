@@ -56,7 +56,7 @@ def openConnection():
             logger.info("conn.status is %s", conn.status)
 
     except Exception as e:
-        logger.exception("Unexpected error: Could not connect to RDS instance. %s", e)
+        logger.info("Unexpected error: Could not connect to RDS instance. %s", e)
         raise e
 
 
@@ -85,19 +85,19 @@ def send_sns_notification(query_result: List):
                 endpoint_attributes = sns_client.get_endpoint_attributes(EndpointArn=data[1])
 
             except Exception as e:
-                logger.exception("Could not get endpoint attributes. %s", e)
+                logger.info("Could not get endpoint attributes. %s", e)
                 create_needed = True
 
         if create_needed:
             try:
                 endpoint_attributes = create_endpoint(platform_application, data, sns_client, topic)
             except Exception as e:
-                logger.exception("already exists with the same Token, but different attributes. %s", e)
+                logger.info("already exists with the same Token, but different attributes. %s", e)
                 # DB status update
                 set_data_to_update_to_database(data, 5, FAILURE)
                 continue
             except UnboundLocalError as e:
-                logger.exception("topic.subscribe error. %s", e)
+                logger.info("topic.subscribe error. %s", e)
                 # DB status update
                 set_data_to_update_to_database(data, 5, FAILURE)
                 continue
@@ -125,8 +125,8 @@ def send_sns_notification(query_result: List):
                 params['Enabled'] = "true"
                 sns_client.set_endpoint_attributes(EndpointArn=data[1], Attributes=params)
             except Exception as e:
-                logger.exception("Set_endpoint_attributes Failure reason. %s", e)
-                logger.exception("Set_endpoint_attributes Failure [id]: %s", data[0])
+                logger.info("Set_endpoint_attributes Failure reason. %s", e)
+                logger.info("Set_endpoint_attributes Failure [id]: %s", data[0])
 
                 # DB status update
                 set_data_to_update_to_database(data, 5, FAILURE)
@@ -141,8 +141,8 @@ def send_sns_notification(query_result: List):
             set_data_to_update_to_database(data, 5, SUCCESS)
             logger.info("Push notification Success [id]: %s", data[0])
         except ClientError as e:
-            logger.exception("Push notification Failure [id]: %s", data[0])
-            logger.exception("Could not push notification to platform application endpoint. %s", e)
+            logger.info("Push notification Failure [id]: %s", data[0])
+            logger.info("Could not push notification to platform application endpoint. %s", e)
 
             # DB status update
             set_data_to_update_to_database(data, 5, FAILURE)
@@ -195,7 +195,7 @@ def update_notification_schema(query_result: List):
             conn.commit()
         logger.info("Update notification schema end")
     except Exception as e:
-        logger.exception("Error while opening connection or processing. %s", e)
+        logger.info("Error while opening connection or processing. %s", e)
     finally:
         logger.info("Closing Connection")
         if conn and conn.status == STATUS_BEGIN:
@@ -222,7 +222,7 @@ def get_push_target_user():
                 query_result.append(rslt)
                 item_count += 1
     except Exception as e:
-        logger.exception("Error while opening connection or processing. %s", e)
+        logger.info("Error while opening connection or processing. %s", e)
     finally:
         logger.info("Closing Connection")
         if conn and conn.status == STATUS_BEGIN:
