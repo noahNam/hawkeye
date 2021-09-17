@@ -52,7 +52,7 @@ def openConnection():
             logger.info("conn.status is %s", conn.status)
 
     except Exception as e:
-        logger.exception("Unexpected error: Could not connect to RDS instance. %s", e)
+        logger.info("Unexpected error: Could not connect to RDS instance. %s", e)
         raise e
 
 
@@ -79,7 +79,7 @@ def update_notification_schema(query_result: List):
             conn.commit()
         logger.info("Update notification schema end")
     except Exception as e:
-        logger.exception("Error while opening connection or processing. %s", e)
+        logger.info("Error while opening connection or processing. %s", e)
     finally:
         logger.info("Closing Connection")
         if conn is not None and conn.status == STATUS_BEGIN:
@@ -119,7 +119,7 @@ def receive_sqs():
                 QueueUrl=SQS_BASE + "/" + SQS_NAME, Entries=entries
             )
         except Exception as e:
-            logger.exception("Error while delete messages or processing. %s", e)
+            logger.info("Error while delete messages or processing. %s", e)
 
         if len(resp['Successful']) != len(entries):
             raise RuntimeError(
