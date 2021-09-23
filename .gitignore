@@ -276,6 +276,6 @@ dmypy.json
 .prof
 
 # deploy
-deploy/
+deploy/*.zip
 
 # End of https://www.toptal.com/developers/gitignore/api/pycharm,python,macos
