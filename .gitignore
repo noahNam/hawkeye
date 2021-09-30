@@ -278,4 +278,7 @@ dmypy.json
 # deploy
 deploy/*.zip
 
+# lambda file
+lambda_function.py
+
 # End of https://www.toptal.com/developers/gitignore/api/pycharm,python,macos
