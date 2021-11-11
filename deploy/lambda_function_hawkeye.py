@@ -155,9 +155,9 @@ def create_endpoint(platform_application, data: List, sns_client, topic):
         - 만약, token이 이미 등록 되어 있고, CustomUserData가 다르면 InvalidParameter Exception 반환(already exists with the same Token, but different attributes.)
         - 값이 없으면 중복된 값이 어느 한계선까지 등록된다.
     """
-    # application endpoint 등록
+    # application endpoint 등록 -> data[6] == device.uuid
     platform_application_endpoint = platform_application.create_platform_endpoint(
-        CustomUserData=str(data[3]),
+        CustomUserData=str(data[6]),
         Token=str(data[4])
     ).arn
 
@@ -209,8 +209,8 @@ def get_push_target_user():
         openConnection()
         with conn.cursor() as cur:
             cur.execute(
-                f"select id, endpoint, data, user_id, token, status from notifications where topic='{TOPIC[0]}' and status = '{WAIT}' "
-                f"union select id, endpoint, data, user_id, token, status from notifications where topic='{TOPIC[1]}' and status = '{WAIT}'  ")
+                f"select id, endpoint, data, user_id, token, status, uuid from notifications where topic='{TOPIC[0]}' and status = '{WAIT}' "
+                f"union select id, endpoint, data, user_id, token, status, uuid from notifications where topic='{TOPIC[1]}' and status = '{WAIT}'  ")
             for row in cur:
                 rslt = list()
                 for idx, data in enumerate(row):
