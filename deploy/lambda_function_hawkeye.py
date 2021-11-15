@@ -1,5 +1,6 @@
 import json
-from typing import List
+from http import HTTPStatus
+from typing import List, Union
 from datetime import datetime
 
 import psycopg2
@@ -8,6 +9,8 @@ import boto3
 import logging
 
 from botocore.exceptions import ClientError
+
+import requests
 from psycopg2.extensions import STATUS_BEGIN
 from psycopg2.extras import execute_values
 
@@ -34,7 +37,23 @@ WAIT = 0
 SUCCESS = 1
 FAILURE = 2
 
+# set sqs
+sqs_name = os.environ.get("SQS_NAME")
+
+# SLACK
+SLACK_TOKEN = os.environ.get("SLACK_TOKEN")
+CHANNEL = os.environ.get("CHANNEL")
+
 conn = None
+
+
+def send_slack_message(message, title):
+    text = title + " -> " + message
+    requests.post(
+        "https://slack.com/api/chat.postMessage",
+        headers={"Authorization": "Bearer " + SLACK_TOKEN},
+        data={"channel": CHANNEL, "text": text},
+    )
 
 
 def openConnection():
@@ -60,7 +79,7 @@ def openConnection():
         raise e
 
 
-def send_sns_notification(query_result: List):
+def send_sns_notification(query_result: List, target_user_to_update_endpoint: List):
     """
         Reference structure
         Topic subscription –> Platform application ARN –> User Device Token
@@ -94,12 +113,12 @@ def send_sns_notification(query_result: List):
             except Exception as e:
                 logger.info("already exists with the same Token, but different attributes. %s", e)
                 # DB status update
-                set_data_to_update_to_database(data, 5, FAILURE)
+                set_data_to_update_to_database(data=data, idx=5, value=FAILURE)
                 continue
             except UnboundLocalError as e:
                 logger.info("topic.subscribe error. %s", e)
                 # DB status update
-                set_data_to_update_to_database(data, 5, FAILURE)
+                set_data_to_update_to_database(data=data, idx=5, value=FAILURE)
                 continue
 
         """
@@ -115,7 +134,7 @@ def send_sns_notification(query_result: List):
         else:
             if endpoint_attributes['Attributes']['Enabled'] == "false":
                 # DB status update
-                set_data_to_update_to_database(data, 5, FAILURE)
+                set_data_to_update_to_database(data=data, idx=5, value=FAILURE)
                 continue
 
         if update_needed:
@@ -129,7 +148,7 @@ def send_sns_notification(query_result: List):
                 logger.info("Set_endpoint_attributes Failure [id]: %s", data[0])
 
                 # DB status update
-                set_data_to_update_to_database(data, 5, FAILURE)
+                set_data_to_update_to_database(data=data, idx=5, value=FAILURE)
                 continue
 
         try:
@@ -138,14 +157,19 @@ def send_sns_notification(query_result: List):
             # push message to topic
             topic.publish(Message=message, MessageStructure='json')
             # DB status update
-            set_data_to_update_to_database(data, 5, SUCCESS)
+            set_data_to_update_to_database(data=data, idx=5, value=SUCCESS)
             logger.info("Push notification Success [id]: %s", data[0])
+
+            # endpoint 업데이트가 필요한 유저
+            if create_needed or update_needed:
+                target_user_to_update_endpoint.append(data)
+
         except ClientError as e:
             logger.info("Push notification Failure [id]: %s", data[0])
             logger.info("Could not push notification to platform application endpoint. %s", e)
 
             # DB status update
-            set_data_to_update_to_database(data, 5, FAILURE)
+            set_data_to_update_to_database(data=data, idx=5, value=FAILURE)
 
 
 def create_endpoint(platform_application, data: List, sns_client, topic):
@@ -162,7 +186,7 @@ def create_endpoint(platform_application, data: List, sns_client, topic):
     ).arn
 
     # DB endpoint update
-    set_data_to_update_to_database(data, 1, platform_application_endpoint)
+    set_data_to_update_to_database(data=data, idx=1, value=platform_application_endpoint)
 
     # get SNS endpoint
     endpoint_attributes = sns_client.get_endpoint_attributes(EndpointArn=platform_application_endpoint)
@@ -173,7 +197,7 @@ def create_endpoint(platform_application, data: List, sns_client, topic):
     return endpoint_attributes
 
 
-def set_data_to_update_to_database(data: List, idx: int, value: str):
+def set_data_to_update_to_database(data: List, idx: int, value: Union[str, int]):
     data[idx] = value
 
 
@@ -200,6 +224,34 @@ def update_notification_schema(query_result: List):
         logger.info("Closing Connection")
         if conn and conn.status == STATUS_BEGIN:
             conn.close()
+
+
+def send_sqs_for_update_endpoint(target_user_to_update_endpoint: List):
+    logger.info("Send sqs for update endpoint start")
+    entries = list()
+    try:
+        sqs_resource = boto3.resource('sqs')
+        queue = sqs_resource.get_queue_by_name(QueueName=sqs_name)
+
+        for target_user in target_user_to_update_endpoint:
+            entry = {
+                "MessageAttributes": {},
+                "MessageBody": target_user,
+                "MessageGroupId": sqs_name
+            }
+            entries.append(entry)
+
+        response = queue.send_messages(entries)
+
+        if response != HTTPStatus.OK:
+            logger.info("SQS Fail : Send sqs for update endpoint")
+            send_slack_message(
+                "Exception: Send sqs for update endpoint / [TARGET_QUEUE] USER_DATA_SYNC_TO_ENDPOINT"
+            )
+        else:
+            logger.info("Send sqs for update endpoint end")
+    except Exception as e:
+        logger.info("Error while send sqs processing for update endpoint. %s", e)
 
 
 def get_push_target_user():
@@ -234,7 +286,9 @@ def get_push_target_user():
 def lambda_handler(event, context):
     result: dict = get_push_target_user()
     if len(result['query_result']) > 0:
-        send_sns_notification(result['query_result'])
-        update_notification_schema(result['query_result'])
+        target_user_to_update_endpoint = list()
+        send_sns_notification(query_result=result['query_result'], target_user_to_update_endpoint=target_user_to_update_endpoint)
+        update_notification_schema(query_result=result['query_result'])
+        send_sqs_for_update_endpoint(target_user_to_update_endpoint=target_user_to_update_endpoint)
 
     return "Selected %d items from RDS table" % result['item_count']
