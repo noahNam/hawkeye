@@ -178,10 +178,12 @@ def create_endpoint(platform_application, data: List, sns_client, topic):
         - 엔드포인트에 연결할 임의의 사용자 데이터. Amazon SNS는 이 데이터를 사용 안한다. 이 데이터는 UTF-8 형식이어야 하며 2KB 미만이어야 한다.
         - 만약, token이 이미 등록 되어 있고, CustomUserData가 다르면 InvalidParameter Exception 반환(already exists with the same Token, but different attributes.)
         - 값이 없으면 중복된 값이 어느 한계선까지 등록된다.
+
+        - CustomUserData : token -> 1:N 은 가능. 즉, user_id 1개당 여러개의 토큰을 가지는 것이 가능하다(토큰은 앱을 삭제하거나 버전업시 변경)
     """
-    # application endpoint 등록 -> data[6] == device.uuid
+    # application endpoint 등록 -> data[3] == user_id
     platform_application_endpoint = platform_application.create_platform_endpoint(
-        CustomUserData=str(data[6]),
+        CustomUserData=str(data[3]),
         Token=str(data[4])
     ).arn
 
