@@ -20,18 +20,19 @@ def lru_cache(maxsize=100):
     See:  http://en.wikipedia.org/wiki/Cache_algorithms#Least_Recently_Used
 
     """
+
     def decorating_function(user_function):
 
         cache = dict()
-        stats = [0, 0]                  # make statistics updateable non-locally
-        HITS, MISSES = 0, 1             # names for the stats fields
-        cache_get = cache.get           # bound method to lookup key or return None
-        _len = len                      # localize the global len() function
-        lock = RLock()                  # linkedlist updates aren't threadsafe
-        root = []                       # root of the circular doubly linked list
-        root[:] = [root, root, None, None]      # initialize by pointing to self
-        nonlocal_root = [root]                  # make updateable non-locally
-        PREV, NEXT, KEY, RESULT = 0, 1, 2, 3    # names for the link fields
+        stats = [0, 0]  # make statistics updateable non-locally
+        HITS, MISSES = 0, 1  # names for the stats fields
+        cache_get = cache.get  # bound method to lookup key or return None
+        _len = len  # localize the global len() function
+        lock = RLock()  # linkedlist updates aren't threadsafe
+        root = []  # root of the circular doubly linked list
+        root[:] = [root, root, None, None]  # initialize by pointing to self
+        nonlocal_root = [root]  # make updateable non-locally
+        PREV, NEXT, KEY, RESULT = 0, 1, 2, 3  # names for the link fields
 
         assert maxsize and maxsize > 0, "maxsize %s not supported" % maxsize
 
@@ -43,7 +44,7 @@ def lru_cache(maxsize=100):
                 if link is not None:
                     # record recent use of the key by moving it to the
                     # front of the list
-                    root, = nonlocal_root
+                    (root,) = nonlocal_root
                     link_prev, link_next, key, result = link
                     link_prev[NEXT] = link_next
                     link_next[PREV] = link_prev
@@ -55,7 +56,7 @@ def lru_cache(maxsize=100):
                     return result
             result = user_function(*args)
             with lock:
-                root, = nonlocal_root
+                (root,) = nonlocal_root
                 if key in cache:
                     # getting here means that this same key was added to the
                     # cache while the lock was released.  since the link
