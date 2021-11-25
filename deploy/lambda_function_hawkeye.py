@@ -274,7 +274,14 @@ def send_sqs_for_update_endpoint(target_user_to_update_endpoint: List):
     logger.info("Send sqs for update endpoint start")
     try:
         # 동일 유저 dict data 제거
-        push_list = list(map(dict, collections.OrderedDict.fromkeys(tuple(sorted(d.items())) for d in target_user_to_update_endpoint)))
+        push_list = list(
+            map(
+                dict,
+                collections.OrderedDict.fromkeys(
+                    tuple(sorted(d.items())) for d in target_user_to_update_endpoint
+                ),
+            )
+        )
 
         sqs_resource = boto3.resource("sqs")
         queue = sqs_resource.get_queue_by_name(QueueName=sqs_name)
