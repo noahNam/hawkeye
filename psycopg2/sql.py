@@ -47,6 +47,7 @@ class Composable(object):
     `!Composed` instance containing the left argument repeated as many times as
     requested.
     """
+
     def __init__(self, wrapped):
         self._wrapped = wrapped
 
@@ -102,12 +103,14 @@ class Composed(Composable):
     `!Composed` objects are iterable (so they can be used in `SQL.join` for
     instance).
     """
+
     def __init__(self, seq):
         wrapped = []
         for i in seq:
             if not isinstance(i, Composable):
                 raise TypeError(
-                    "Composed elements must be Composable, got %r instead" % i)
+                    "Composed elements must be Composable, got %r instead" % i
+                )
             wrapped.append(i)
 
         super(Composed, self).__init__(wrapped)
@@ -121,7 +124,7 @@ class Composed(Composable):
         rv = []
         for i in self._wrapped:
             rv.append(i.as_string(context))
-        return ''.join(rv)
+        return "".join(rv)
 
     def __iter__(self):
         return iter(self._wrapped)
@@ -151,8 +154,7 @@ class Composed(Composable):
         if isinstance(joiner, string_types):
             joiner = SQL(joiner)
         elif not isinstance(joiner, SQL):
-            raise TypeError(
-                "Composed.join() argument must be a string or an SQL")
+            raise TypeError("Composed.join() argument must be a string or an SQL")
 
         return joiner.join(self)
 
@@ -179,6 +181,7 @@ class SQL(Composable):
         >>> print(query.as_string(conn))
         select "foo", "bar" from "table"
     """
+
     def __init__(self, string):
         if not isinstance(string, string_types):
             raise TypeError("SQL values must be strings")
@@ -240,14 +243,16 @@ class SQL(Composable):
             if name.isdigit():
                 if autonum:
                     raise ValueError(
-                        "cannot switch from automatic field numbering to manual")
+                        "cannot switch from automatic field numbering to manual"
+                    )
                 rv.append(args[int(name)])
                 autonum = None
 
             elif not name:
                 if autonum is None:
                     raise ValueError(
-                        "cannot switch from manual field numbering to automatic")
+                        "cannot switch from manual field numbering to automatic"
+                    )
                 rv.append(args[autonum])
                 autonum += 1
 
@@ -319,6 +324,7 @@ class Identifier(Composable):
         select "table"."field" from "schema"."table"
 
     """
+
     def __init__(self, *strings):
         if not strings:
             raise TypeError("Identifier cannot be empty")
@@ -336,21 +342,17 @@ class Identifier(Composable):
 
     @property
     def string(self):
-        """The string wrapped by the `Identifier`.
-        """
+        """The string wrapped by the `Identifier`."""
         if len(self._wrapped) == 1:
             return self._wrapped[0]
         else:
-            raise AttributeError(
-                "the Identifier wraps more than one than one string")
+            raise AttributeError("the Identifier wraps more than one than one string")
 
     def __repr__(self):
-        return "%s(%s)" % (
-            self.__class__.__name__,
-            ', '.join(map(repr, self._wrapped)))
+        return "%s(%s)" % (self.__class__.__name__, ", ".join(map(repr, self._wrapped)))
 
     def as_string(self, context):
-        return '.'.join(ext.quote_ident(s, context) for s in self._wrapped)
+        return ".".join(ext.quote_ident(s, context) for s in self._wrapped)
 
 
 class Literal(Composable):
@@ -373,6 +375,7 @@ class Literal(Composable):
         'foo', 'ba''r', 42
 
     """
+
     @property
     def wrapped(self):
         """The object wrapped by the `!Literal`."""
@@ -388,7 +391,7 @@ class Literal(Composable):
             raise TypeError("context must be a connection or a cursor")
 
         a = ext.adapt(self._wrapped)
-        if hasattr(a, 'prepare'):
+        if hasattr(a, "prepare"):
             a.prepare(conn)
 
         rv = a.getquoted()
@@ -427,7 +430,7 @@ class Placeholder(Composable):
 
     def __init__(self, name=None):
         if isinstance(name, string_types):
-            if ')' in name:
+            if ")" in name:
                 raise ValueError("invalid name: %r" % name)
 
         elif name is not None:
@@ -441,8 +444,7 @@ class Placeholder(Composable):
         return self._wrapped
 
     def __repr__(self):
-        return "Placeholder(%r)" % (
-            self._wrapped if self._wrapped is not None else '',)
+        return "Placeholder(%r)" % (self._wrapped if self._wrapped is not None else "",)
 
     def as_string(self, context):
         if self._wrapped is not None:
