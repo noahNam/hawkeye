@@ -175,15 +175,25 @@ def send_sns_notification(query_result: List, target_user_to_update_endpoint: Li
         try:
             # set message
             message = json.dumps(data[2], ensure_ascii=False)
+
             # push message to topic
-            topic.publish(Message=message, MessageStructure="json")
+            # topic으로 publish 할 경우 해당 주제를 구독하고 있는 모든 device에 push가 가기 때문에 단일타겟 지정으로 변경
+            # topic.publish(Message=message, MessageStructure="json")
+
+            sns_client.publish(
+                TargetArn=data[1],
+                Message=message,
+                MessageStructure="json",
+            )
             # DB status update
             set_data_to_update_to_database(data=data, idx=5, value=SUCCESS)
             logger.info("Push notification Success [id]: %s", data[0])
 
             # endpoint 업데이트가 필요한 유저
             if create_needed or update_needed:
-                target_user_to_update_endpoint.append(data)
+                target_user_to_update_endpoint.append(
+                    dict(user_id=data[3], endpoint=data[1])
+                )
 
         except ClientError as e:
             logger.info("Push notification Failure [id]: %s", data[0])
@@ -284,17 +294,17 @@ def send_sqs_for_update_endpoint(target_user_to_update_endpoint: List):
                     "Id": str(count),
                     "MessageAttributes": {},
                     "MessageBody": str(x),
-                    "MessageGroupId": sqs_name,
                 }
                 entries.append(entry)
 
             response = queue.send_messages(Entries=entries)
             print("---------> 22 : ", response)
 
-        if response != HTTPStatus.OK:
+        if response["ResponseMetadata"]["HTTPStatusCode"] != HTTPStatus.OK:
             logger.info("SQS Fail : Send sqs for update endpoint")
             send_slack_message(
-                "Exception: Send sqs for update endpoint / [TARGET_QUEUE] USER_DATA_SYNC_TO_ENDPOINT"
+                message="Exception:Send sqs for update endpoint / [TARGET_QUEUE] USER_DATA_SYNC_TO_ENDPOINT",
+                title="🚀 SQS Fail:Send sqs for update endpoint",
             )
         else:
             logger.info("Send sqs for update endpoint end")
