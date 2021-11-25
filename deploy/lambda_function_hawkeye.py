@@ -292,7 +292,7 @@ def send_sqs_for_update_endpoint(target_user_to_update_endpoint: List):
                 entry = {
                     "Id": str(count),
                     "MessageAttributes": {},
-                    "MessageBody": str(x),
+                    "MessageBody": json.dumps(x),
                 }
                 entries.append(entry)
 
@@ -302,7 +302,7 @@ def send_sqs_for_update_endpoint(target_user_to_update_endpoint: List):
             logger.info("SQS Fail : Send sqs for update endpoint")
             send_slack_message(
                 message="Exception:Send sqs for update endpoint / [TARGET_QUEUE] USER_DATA_SYNC_TO_ENDPOINT",
-                title="🚀 SQS Fail:Send sqs for update endpoint",
+                title="☠️ [FAIL] SQS Send : ",
             )
         else:
             logger.info("Send sqs for update endpoint end")
