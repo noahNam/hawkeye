@@ -1,3 +1,4 @@
+import collections
 import json
 from http import HTTPStatus
 from typing import List, Union
@@ -271,25 +272,23 @@ def update_notification_schema(query_result: List):
 
 def send_sqs_for_update_endpoint(target_user_to_update_endpoint: List):
     logger.info("Send sqs for update endpoint start")
-    print("---------> 00 : ", target_user_to_update_endpoint)
-
     try:
+        # 동일 유저 dict data 제거
+        push_list = list(map(dict, collections.OrderedDict.fromkeys(tuple(sorted(d.items())) for d in target_user_to_update_endpoint)))
+
         sqs_resource = boto3.resource("sqs")
         queue = sqs_resource.get_queue_by_name(QueueName=sqs_name)
 
         max_batch_size = 10  # current maximum allowed
         chunks = [
-            target_user_to_update_endpoint[x : x + max_batch_size]
-            for x in range(0, len(target_user_to_update_endpoint), max_batch_size)
+            push_list[x : x + max_batch_size]
+            for x in range(0, len(push_list), max_batch_size)
         ]
-        print("111 : ", chunks)
         count = 0
         for chunk in chunks:
             entries = []
-            print("222 : ", chunk)
             for x in chunk:
                 count += 1
-                print("333 : ", x)
                 entry = {
                     "Id": str(count),
                     "MessageAttributes": {},
@@ -298,7 +297,6 @@ def send_sqs_for_update_endpoint(target_user_to_update_endpoint: List):
                 entries.append(entry)
 
             response = queue.send_messages(Entries=entries)
-            print("---------> 22 : ", response)
 
         if response["ResponseMetadata"]["HTTPStatusCode"] != HTTPStatus.OK:
             logger.info("SQS Fail : Send sqs for update endpoint")
