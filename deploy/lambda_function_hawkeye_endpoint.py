@@ -9,7 +9,6 @@ import psycopg2
 import requests
 
 from psycopg2.extensions import STATUS_BEGIN
-from psycopg2.extras import execute_values
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -24,6 +23,8 @@ port = int(os.environ.get("PORT"))
 # SLACK
 SLACK_TOKEN = os.environ.get("SLACK_TOKEN")
 CHANNEL = os.environ.get("CHANNEL")
+
+endpoint_prefix = os.environ.get("ENDPOINT_PREFIX")
 
 conn = None
 
@@ -72,41 +73,33 @@ def openConnection():
         raise e
 
 
-def update_user_endpoint_schema(msg_list: List):
+def update_user_endpoint(msg_list: List):
     try:
         openConnection()
         with conn.cursor() as cur:
             for msg in msg_list:
-                print("----> ", msg)
-                # try:
-                #     data = json.loads(msg)
-                #     data = data["msg"]
-                #     cur.execute(
-                #         """
-                #             INSERT INTO TANOS_USER_INFO_TB (user_id,user_profile_id,code,value,created_at,updated_at)
-                #             VALUES (%s,%s,%s,%s,%s,%s)
-                #             ON DUPLICATE KEY UPDATE value=%s, updated_at=%s
-                #         """,
-                #         (
-                #             data["user_id"],
-                #             data["user_profile_id"],
-                #             data["code"],
-                #             data["value"],
-                #             datetime.now(),
-                #             datetime.now(),
-                #             data["value"],
-                #             datetime.now(),
-                #         ),
-                #     )
-                #     conn.commit()
-                # except Exception as e:
-                #     logger.exception("Error while upsert data lake schema %s", e)
-                #     # 처리되지 못한 message list에서 삭제처리 -> message delete 처리 차단
-                #     msg_list.remove(msg)
+                data = json.loads(msg)
+                try:
+                    query = """
+                           update devices 
+                           set endpoint=%s, updated_at=%s
+                           where user_id=%s
+                    """
+                    record_to_update = (data['endpoint'].split(endpoint_prefix)[1], datetime.now(), int(data['user_id']))
+                    cur.execute(query, record_to_update)
+                    conn.commit()
+                except Exception as e:
+                    logger.exception("Error while update endpoint to user devices schema %s", e)
+                    # 처리되지 못한 message list에서 삭제처리 -> message delete 처리 차단
+                    msg_list.remove(msg)
 
-        logger.info("Upsert user_data to lake end")
+        logger.info("update endpoint to user devices schema end")
     except Exception as e:
         logger.exception("Error while opening connection or processing. %s", e)
+        send_slack_message(
+            message="Exception: {}".format(str(e)),
+            title="☠️ [FAIL] Hawkeye endpoint lambda : "
+        )
     finally:
         if conn or conn.is_connected():
             conn.close()
@@ -125,11 +118,12 @@ def receive_sqs(event):
     except Exception as e:
         logger.info("SQS Fail : {}".format(e))
         send_slack_message(
-            "Exception: {}".format(str(e)), "[FAIL] SQS_USER_DATA_SYNC_TO_LAKE"
+            message="Exception: {}".format(str(e)),
+            title="🚀 [FAIL] Hawkeye endpoint lambda : "
         )
 
-    # 처리 로직 -> data push to data lake ####
-    update_user_endpoint_schema(msg_list)
+    # 처리 로직 ###############################
+    update_user_endpoint(msg_list)
     #########################################
 
     dict_ = {
