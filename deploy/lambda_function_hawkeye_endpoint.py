@@ -85,11 +85,17 @@ def update_user_endpoint(msg_list: List):
                            set endpoint=%s, updated_at=%s
                            where user_id=%s
                     """
-                    record_to_update = (data['endpoint'].split(endpoint_prefix)[1], datetime.now(), int(data['user_id']))
+                    record_to_update = (
+                        data["endpoint"].split(endpoint_prefix)[1],
+                        datetime.now(),
+                        int(data["user_id"]),
+                    )
                     cur.execute(query, record_to_update)
                     conn.commit()
                 except Exception as e:
-                    logger.exception("Error while update endpoint to user devices schema %s", e)
+                    logger.exception(
+                        "Error while update endpoint to user devices schema %s", e
+                    )
                     # 처리되지 못한 message list에서 삭제처리 -> message delete 처리 차단
                     msg_list.remove(msg)
 
@@ -98,7 +104,7 @@ def update_user_endpoint(msg_list: List):
         logger.exception("Error while opening connection or processing. %s", e)
         send_slack_message(
             message="Exception: {}".format(str(e)),
-            title="☠️ [FAIL] Hawkeye endpoint lambda : "
+            title="☠️ [FAIL] Hawkeye endpoint lambda : ",
         )
     finally:
         if conn or conn.is_connected():
@@ -119,7 +125,7 @@ def receive_sqs(event):
         logger.info("SQS Fail : {}".format(e))
         send_slack_message(
             message="Exception: {}".format(str(e)),
-            title="🚀 [FAIL] Hawkeye endpoint lambda : "
+            title="🚀 [FAIL] Hawkeye endpoint lambda : ",
         )
 
     # 처리 로직 ###############################
