@@ -106,10 +106,6 @@ def update_user_endpoint(msg_list: List):
             message="Exception: {}".format(str(e)),
             title="☠️ [FAIL] Hawkeye endpoint lambda : ",
         )
-    finally:
-        if conn or conn.is_connected():
-            conn.close()
-            logger.info("Closing Connection")
 
 
 def receive_sqs(event):

@@ -129,7 +129,8 @@ def send_sns_notification(query_result: List, target_user_to_update_endpoint: Li
                 )
             except Exception as e:
                 logger.info(
-                    "already exists with the same Token, but different attributes. %s",
+                    "user_id(%s)-already exists with the same Token, but different attributes. %s",
+                    data[3],
                     e,
                 )
                 # DB status update
@@ -264,10 +265,6 @@ def update_notification_schema(query_result: List):
         logger.info("Update notification schema end")
     except Exception as e:
         logger.info("Error while opening connection or processing. %s", e)
-    finally:
-        logger.info("Closing Connection")
-        if conn and conn.status == STATUS_BEGIN:
-            conn.close()
 
 
 def send_sqs_for_update_endpoint(target_user_to_update_endpoint: List):
@@ -339,10 +336,6 @@ def get_push_target_user():
                 item_count += 1
     except Exception as e:
         logger.info("Error while opening connection or processing. %s", e)
-    finally:
-        logger.info("Closing Connection")
-        if conn and conn.status == STATUS_BEGIN:
-            conn.close()
 
     return dict(item_count=item_count, query_result=query_result)
 

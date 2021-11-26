@@ -95,10 +95,6 @@ def update_notification_schema(query_result: List):
         logger.info("Update notification schema end")
     except Exception as e:
         logger.info("Error while opening connection or processing. %s", e)
-    finally:
-        logger.info("Closing Connection")
-        if conn is not None and conn.status == STATUS_BEGIN:
-            conn.close()
 
 
 def receive_sqs():
