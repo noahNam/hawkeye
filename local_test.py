@@ -14,7 +14,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # log 출력 형식
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 # log 출력
 stream_handler = logging.StreamHandler()
@@ -38,7 +38,9 @@ FAILURE = 2
 # set sns
 topic_arn = "arn:aws:sns:ap-northeast-2:208389685150:PUSH_PRIVATE"
 application_arn = "arn:aws:sns:ap-northeast-2:208389685150:app/GCM/dev-hawkeye-fcm"
-endpoint_prefix = "arn:aws:sns:ap-northeast-2:208389685150:endpoint/GCM/dev-hawkeye-fcm/"
+endpoint_prefix = (
+    "arn:aws:sns:ap-northeast-2:208389685150:endpoint/GCM/dev-hawkeye-fcm/"
+)
 
 conn = None
 
@@ -54,11 +56,23 @@ def openConnection():
         logger.info("Opening Connection")
         if conn is None:
             conn = psycopg2.connect(
-                host=host, dbname=database, user=user, password=password, port=port, connect_timeout=5)
+                host=host,
+                dbname=database,
+                user=user,
+                password=password,
+                port=port,
+                connect_timeout=5,
+            )
             logger.info("conn.status is %s", conn.status)
         elif conn.status == STATUS_BEGIN:
             conn = psycopg2.connect(
-                host=host, dbname=database, user=user, password=password, port=port, connect_timeout=5)
+                host=host,
+                dbname=database,
+                user=user,
+                password=password,
+                port=port,
+                connect_timeout=5,
+            )
             logger.info("conn.status is %s", conn.status)
 
     except Exception as e:
@@ -68,12 +82,12 @@ def openConnection():
 
 def send_sns_notification(query_result: List):
     """
-        Reference structure
-        Topic subscription –> Platform application ARN –> User Device Token
+    Reference structure
+    Topic subscription –> Platform application ARN –> User Device Token
     """
     # set boto3
     sns_client = boto3.client("sns")
-    sns_resource = boto3.resource('sns')
+    sns_resource = boto3.resource("sns")
 
     # set platform application
     platform_application = sns_resource.PlatformApplication(application_arn)
@@ -84,11 +98,13 @@ def send_sns_notification(query_result: List):
         endpoint_attributes = None
         update_needed = False
         create_needed = True if (data[1] == endpoint_prefix) else False
-        
+
         if not create_needed:
             try:
                 # get SNS endpoint
-                endpoint_attributes = sns_client.get_endpoint_attributes(EndpointArn=data[1])
+                endpoint_attributes = sns_client.get_endpoint_attributes(
+                    EndpointArn=data[1]
+                )
 
             except Exception as e:
                 logger.exception("Could not get endpoint attributes. %s", e)
@@ -96,9 +112,14 @@ def send_sns_notification(query_result: List):
 
         if create_needed:
             try:
-                endpoint_attributes = create_endpoint(platform_application, data, sns_client, topic)
+                endpoint_attributes = create_endpoint(
+                    platform_application, data, sns_client, topic
+                )
             except Exception as e:
-                logger.exception("already exists with the same Token, but different attributes. %s", e)
+                logger.exception(
+                    "already exists with the same Token, but different attributes. %s",
+                    e,
+                )
                 # DB status update
                 set_data_to_update_to_database(data, 5, FAILURE)
                 continue
@@ -116,10 +137,10 @@ def send_sns_notification(query_result: List):
             - endpoint enabled == false 라도, Token update 의미가 없음 (바로 다시 비활성화 되기 때문에)
             
         """
-        if endpoint_attributes['Attributes']['Token'] != data[4]:
+        if endpoint_attributes["Attributes"]["Token"] != data[4]:
             update_needed = True
         else:
-            if endpoint_attributes['Attributes']['Enabled'] == "false":
+            if endpoint_attributes["Attributes"]["Enabled"] == "false":
                 # DB status update
                 set_data_to_update_to_database(data, 5, FAILURE)
                 continue
@@ -127,9 +148,11 @@ def send_sns_notification(query_result: List):
         if update_needed:
             try:
                 params = dict()
-                params['Token'] = data[4]
-                params['Enabled'] = "true"
-                sns_client.set_endpoint_attributes(EndpointArn=data[1], Attributes=params)
+                params["Token"] = data[4]
+                params["Enabled"] = "true"
+                sns_client.set_endpoint_attributes(
+                    EndpointArn=data[1], Attributes=params
+                )
 
                 # todo. device_tokens.endpoint update -> platform-application-sns-sqs-lambda 로 receive 처리
                 # 비활성화 상태더라도 endpoint가 생성안되있을 경우 생성 후에는 Enabled 이 True로 내려오기 때문에 false 처리 필요
@@ -156,13 +179,15 @@ def send_sns_notification(query_result: List):
             # }
             # topic.publish(Message=message, MessageStructure='json', MessageAttributes=message_attributes)
 
-            topic.publish(Message=message, MessageStructure='json')
+            topic.publish(Message=message, MessageStructure="json")
             # DB status update
             set_data_to_update_to_database(data, 5, SUCCESS)
             logger.info("Push notification Success [id]: %s", data[0])
         except ClientError as e:
             logger.exception("Push notification Failure [id]: %s", data[0])
-            logger.exception("Could not push notification to platform application endpoint. %s", e)
+            logger.exception(
+                "Could not push notification to platform application endpoint. %s", e
+            )
 
             # DB status update
             set_data_to_update_to_database(data, 5, FAILURE)
@@ -170,25 +195,26 @@ def send_sns_notification(query_result: List):
 
 def create_endpoint(platform_application, data: List, sns_client, topic):
     """
-        CustomUserData : token과 mapping 되는 unique 값
-        - 엔드포인트에 연결할 임의의 사용자 데이터. Amazon SNS는 이 데이터를 사용 안한다. 이 데이터는 UTF-8 형식이어야 하며 2KB 미만이어야 한다.
-        - 만약, token이 이미 등록 되어 있고, CustomUserData가 다르면 InvalidParameter Exception 반환(already exists with the same Token, but different attributes.)
-        - 값이 없으면 중복된 값이 어느 한계선까지 등록된다.
+    CustomUserData : token과 mapping 되는 unique 값
+    - 엔드포인트에 연결할 임의의 사용자 데이터. Amazon SNS는 이 데이터를 사용 안한다. 이 데이터는 UTF-8 형식이어야 하며 2KB 미만이어야 한다.
+    - 만약, token이 이미 등록 되어 있고, CustomUserData가 다르면 InvalidParameter Exception 반환(already exists with the same Token, but different attributes.)
+    - 값이 없으면 중복된 값이 어느 한계선까지 등록된다.
     """
     # application endpoint 등록
     platform_application_endpoint = platform_application.create_platform_endpoint(
-        CustomUserData=str(data[3]),
-        Token=str(data[4])
+        CustomUserData=str(data[3]), Token=str(data[4])
     ).arn
 
     # DB endpoint update
     set_data_to_update_to_database(data, 1, platform_application_endpoint)
 
     # get SNS endpoint
-    endpoint_attributes = sns_client.get_endpoint_attributes(EndpointArn=platform_application_endpoint)
+    endpoint_attributes = sns_client.get_endpoint_attributes(
+        EndpointArn=platform_application_endpoint
+    )
 
     # 구독 생성
-    topic.subscribe(Protocol='application', Endpoint=platform_application_endpoint)
+    topic.subscribe(Protocol="application", Endpoint=platform_application_endpoint)
 
     return endpoint_attributes
 
@@ -201,17 +227,22 @@ def update_notification_schema(query_result: List):
     logger.info("Update notification schema start")
     update_data = list()
     for data in query_result:
-        update_data.append((data[0], data[1].split(endpoint_prefix)[1], data[5], datetime.now()))
+        update_data.append(
+            (data[0], data[1].split(endpoint_prefix)[1], data[5], datetime.now())
+        )
     try:
         openConnection()
         with conn.cursor() as cur:
-            execute_values(cur,
-                           """
+            execute_values(
+                cur,
+                """
                            update notifications 
                            set endpoint=data.endpoint,status=data.status, updated_at=data.updated_at
                            from (VALUES %s) as data (id, endpoint, status, updated_at)
                            where notifications.id=data.id
-                           """, update_data)
+                           """,
+                update_data,
+            )
             conn.commit()
         logger.info("Update notification schema end")
     except Exception as e:
@@ -230,7 +261,8 @@ def get_push_target_user():
         with conn.cursor() as cur:
             cur.execute(
                 f"select id, endpoint, data, user_id, token, status from notifications where topic='{TOPIC[0]}' and status = '{WAIT}' "
-                f"union select id, endpoint, data, user_id, token, status from notifications where topic='{TOPIC[1]}' and status = '{WAIT}'  ")
+                f"union select id, endpoint, data, user_id, token, status from notifications where topic='{TOPIC[1]}' and status = '{WAIT}'  "
+            )
             for row in cur:
                 rslt = list()
                 for idx, data in enumerate(row):
@@ -253,7 +285,7 @@ def get_push_target_user():
 
 def delete_application_endpoint(query_result: List):
     # set boto3
-    sns_client = boto3.client('sns')
+    sns_client = boto3.client("sns")
 
     for data in query_result:
         logger.info("Delete endpoint: ", str(data[1]))
@@ -267,11 +299,11 @@ def run():
     # delete_application_endpoint(result['query_result'])
     # return
 
-    if len(result['query_result']) > 0:
-        send_sns_notification(result['query_result'])
-        update_notification_schema(result['query_result'])
+    if len(result["query_result"]) > 0:
+        send_sns_notification(result["query_result"])
+        update_notification_schema(result["query_result"])
 
-    return "Selected %d items from RDS table" % result['item_count']
+    return "Selected %d items from RDS table" % result["item_count"]
 
 
 if __name__ == "__main__":
