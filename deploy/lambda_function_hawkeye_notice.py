@@ -49,6 +49,8 @@ CHANNEL = os.environ.get("CHANNEL")
 # admin_user_id
 ADMIN_USER_ID = os.environ.get("ADMIN_USER_ID")
 
+custom_user_data_prefix = os.environ.get("CUSTOM_USER_DATA_PREFIX")
+
 conn = None
 
 
@@ -215,8 +217,10 @@ def create_endpoint(platform_application, data: List, sns_client, topic):
     - 값이 없으면 중복된 값이 어느 한계선까지 등록된다.
     """
     # application endpoint 등록 -> data[6] == device.uuid
+    # custom_user_data_prefix -> prod: THP, dev: THD
     platform_application_endpoint = platform_application.create_platform_endpoint(
-        CustomUserData=str("TH-" + str(data[3])), Token=str(data[4])
+        CustomUserData=str(custom_user_data_prefix + "-" + str(data[3])),
+        Token=str(data[4]),
     ).arn
 
     # DB endpoint update
