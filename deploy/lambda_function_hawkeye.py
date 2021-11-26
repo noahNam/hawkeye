@@ -45,6 +45,8 @@ sqs_name = os.environ.get("SQS_NAME")
 SLACK_TOKEN = os.environ.get("SLACK_TOKEN")
 CHANNEL = os.environ.get("CHANNEL")
 
+custom_user_data_prefix = os.environ.get("CUSTOM_USER_DATA_PREFIX")
+
 conn = None
 
 
@@ -217,8 +219,10 @@ def create_endpoint(platform_application, data: List, sns_client, topic):
     - CustomUserData : token -> 1:N 은 가능. 즉, user_id 1개당 여러개의 토큰을 가지는 것이 가능하다(토큰은 앱을 삭제하거나 버전업시 변경)
     """
     # application endpoint 등록 -> data[3] == user_id
+    # custom_user_data_prefix -> prod: THP, dev: THD
     platform_application_endpoint = platform_application.create_platform_endpoint(
-        CustomUserData=str("TH-" + str(data[3])), Token=str(data[4])
+        CustomUserData=str(custom_user_data_prefix + "-" + str(data[3])),
+        Token=str(data[4]),
     ).arn
 
     # DB endpoint update
