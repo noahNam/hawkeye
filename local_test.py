@@ -1,3 +1,4 @@
+import os
 import json
 from typing import List
 from datetime import datetime
@@ -21,9 +22,9 @@ stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(formatter)
 logger.addHandler(stream_handler)
 
-host = "***REMOVED***"
+host = os.environ.get("RDS_HOST", "localhost")
 user = "postgres"
-password = "***REMOVED***"
+password = os.environ.get("PASSWORD")
 database = "tanos"
 port = "5432"
 
@@ -36,8 +37,8 @@ SUCCESS = 1
 FAILURE = 2
 
 # set sns
-topic_arn = "arn:aws:sns:ap-northeast-2:208389685150:PUSH_PRIVATE"
-application_arn = "arn:aws:sns:ap-northeast-2:208389685150:app/GCM/dev-hawkeye-fcm"
+topic_arn = os.environ.get("SNS_TOPIC_ARN")
+application_arn = os.environ.get("SNS_APP_ARN")
 endpoint_prefix = (
     "arn:aws:sns:ap-northeast-2:208389685150:endpoint/GCM/dev-hawkeye-fcm/"
 )
